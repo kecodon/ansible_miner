@@ -1,57 +1,81 @@
-# =========================
-# FILE: collect_status.yml (NEW - chạy trên SERVER)
-# =========================
-- name: Thu thập trạng thái các máy đào
+- name: Thu thập trạng thái máy đào
   hosts: miners
-  gather_facts: no
+  gather_facts: false
+  become: yes
+
   tasks:
-    - name: Kiểm tra tool đang chạy
-      shell: pgrep -af xmrig || pgrep -af SRBMiner || pgrep -af dero
-      register: miner_proc
-      ignore_errors: yes
 
-    - name: Lấy config tool
-      shell: |
-        if echo "{{ miner_proc.stdout }}" | grep -iq xmrig; then
-          cat /opt/xmrig/config.json
-        elif echo "{{ miner_proc.stdout }}" | grep -iq SRBMiner; then
-          cat /opt/SRBMiner-Multi/start.txt
-        elif echo "{{ miner_proc.stdout }}" | grep -iq dero; then
-          cat /opt/dero-miner/start.txt
-        else
-          echo "{}"
-        fi
-      register: config_raw
-      ignore_errors: yes
+    - name: Đọc biến môi trường từ file vars
+      include_vars: mining_vars.yml
 
-    - name: Parse hashrate từ log (chỉ xmrig)
-      shell: tail -n 30 /var/log/xmrig.log | grep -oP "[0-9.]+ H/s" | tail -1
-      register: hash_log
-      ignore_errors: yes
+    - name: Xác định công cụ đang dùng
+      set_fact:
+        tool: "{{ mining_tool }}"
+
+    - name: Đọc config XMRig nếu đang dùng xmrig
+      when: tool == "xmrig"
+      slurp:
+        src: /opt/xmrig/config.json
+      register: xmrig_config_raw
+
+    - name: Parse config XMRig
+      when: tool == "xmrig"
+      set_fact:
+        config_json: "{{ xmrig_config_raw.content | b64decode | from_json }}"
+        wallet: "{{ config_json.pools[0].user }}"
+        pool: "{{ config_json.pools[0].url }}"
+        coin: "XMR"
+
+    - name: Đọc config SRBMiner nếu đang dùng srbminer
+      when: tool == "srbminer"
+      slurp:
+        src: /opt/srbminer/start.txt
+      register: srb_config_raw
+
+    - name: Parse config SRBMiner
+      when: tool == "srbminer"
+      set_fact:
+        srb_config: "{{ srb_config_raw.content | b64decode }}"
+        wallet: "{{ (srb_config | regex_search('--wallet\\s+(\\S+)', '\\1')) }}"
+        pool: "{{ (srb_config | regex_search('--pool\\s+(\\S+)', '\\1')) }}"
+        coin: "XMR"
+
+    - name: Đọc config DeroLuna nếu đang dùng deroluna
+      when: tool == "deroluna"
+      slurp:
+        src: /opt/deroluna/start.txt
+      register: dero_config_raw
+
+    - name: Parse config DeroLuna
+      when: tool == "deroluna"
+      set_fact:
+        dero_config: "{{ dero_config_raw.content | b64decode }}"
+        wallet: "{{ (dero_config | regex_search('--wallet\\s+(\\S+)', '\\1')) }}"
+        pool: "{{ (dero_config | regex_search('--daemon-address\\s+(\\S+)', '\\1')) }}"
+        coin: "DERO"
+
+    - name: Lấy số threads
+      shell: pgrep -fa "{{ tool }}" | grep -oP '(?<=--threads=)\d+' || echo 0
+      register: threads_raw
+      changed_when: false
+
+    - name: Lấy hash rate (giả định có file log)
+      shell: grep -oP '\d+\.\d+ H/s' /var/log/{{ tool }}.log | tail -n1 || echo "0 H/s"
+      register: hashrate_raw
+      changed_when: false
 
     - name: Gửi dữ liệu về dashboard server
       uri:
-        url: "http://192.168.10.150:5050/report"  # <-- IP SERVER
+        url: "http://{{ dashboard_server }}:5050/report"
         method: POST
-        headers:
-          Content-Type: "application/json"
         body_format: json
         body:
           worker: "{{ inventory_hostname }}"
-          ip: "{{ ansible_host }}"
-          tool: >-
-            {% if 'xmrig' in miner_proc.stdout|lower %}xmrig
-            {% elif 'srbminer' in miner_proc.stdout|lower %}srbminer
-            {% elif 'dero' in miner_proc.stdout|lower %}dero
-            {% else %}unknown{% endif %}
-          pool: >-
-            {{ config_raw.stdout | regex_search('(?<=\"url\": \?")[^\"]+', '\1') | default('') }}
-          wallet: >-
-            {{ config_raw.stdout | regex_search('(?<=\"user\": \?")[^\"]+', '\1') | default('') }}
-          coin: >-
-            {% if 'xmrig' in miner_proc.stdout|lower %}XMR
-            {% elif 'dero' in miner_proc.stdout|lower %}DERO
-            {% else %}Unknown{% endif %}
-          threads: "{{ ansible_processor_cores | default(2) }}"
-          hashrate: "{{ hash_log.stdout | default('0 H/s') }}"
-      delegate_to: localhost
+          ip: "{{ ansible_host | default('localhost') }}"
+          tool: "{{ tool }}"
+          coin: "{{ coin }}"
+          wallet: "{{ wallet }}"
+          pool: "{{ pool }}"
+          threads: "{{ threads_raw.stdout }}"
+          hashrate: "{{ hashrate_raw.stdout }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
