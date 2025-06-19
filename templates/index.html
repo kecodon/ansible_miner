@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Miner Dashboard</title>
+  <style>
+    table { border-collapse: collapse; width: 100% }
+    th, td { border: 1px solid gray; padding: 8px }
+    th { background-color: #f0f0f0 }
+  </style>
+</head>
+<body>
+  <h2>Trạng thái máy đào</h2>
+  <table>
+    <tr>
+      <th>Worker</th><th>IP</th><th>Tool</th><th>Coin</th><th>Wallet</th>
+      <th>Pool</th><th>Threads</th><th>Hashrate</th><th>Last Seen</th>
+    </tr>
+    {% for name, info in miners.items() %}
+    <tr>
+      <td>{{ name }}</td>
+      <td>{{ info.ip }}</td>
+      <td>{{ info.tool }}</td>
+      <td>{{ info.coin }}</td>
+      <td>{{ info.wallet }}</td>
+      <td>{{ info.pool }}</td>
+      <td>{{ info.threads }}</td>
+      <td>{{ info.hashrate }}</td>
+      <td>{{ info.timestamp }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>
