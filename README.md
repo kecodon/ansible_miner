@@ -1,5 +1,5 @@
 ✅ 1. CẤU TRÚC THƯ MỤC
-bash
+
 Sao chép
 Chỉnh sửa
 /root/ansible_miner/
@@ -12,6 +12,7 @@ Chỉnh sửa
 │   ├── xmrig_config.json.j2
 │   ├── srbminer_config.txt.j2
 │   └── dero_start.txt.j2
+
 ✅ 2. CÁC FILE CẦN TẠO/ĐIỀU CHỈNH
 File	Mô tả	Cần sửa gì?
 hosts	Danh sách IP client	Thêm IP và user/pass
@@ -22,6 +23,7 @@ dashboard.py	Web dashboard Flask	Không cần sửa nếu port 5050
 templates/*.j2	Config miner theo từng tool	Có thể sửa thêm nếu pool yêu cầu định dạng khác
 
 ✅ 3. LỆNH CẦN CHẠY
+
 🔹 Bước 1: Cài Ansible và thư viện cần thiết
 bash
 Sao chép
@@ -64,7 +66,9 @@ cron
 Sao chép
 Chỉnh sửa
 * * * * * cd /root/ansible_miner && ansible-playbook -i hosts collect_status.yml
+
 ✅ 4. ĐỔI TOOL, POOL, VÍ, WORKER
+
 Chỉ cần sửa trong mining_vars.yml, ví dụ:
 
 yaml
