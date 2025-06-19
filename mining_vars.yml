@@ -1,0 +1,4 @@
+mining_tool: "xmrig"  # xmrig / srbminer / dero
+wallet: "NHbSHmqm1ojuTRtdwkURwhamQ1pNC9SkJU9T"
+pool: "randomxmonero.auto.nicehash.com:9200"
+threads: 24
