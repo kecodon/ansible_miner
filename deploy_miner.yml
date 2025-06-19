@@ -72,10 +72,29 @@
         mode: '0644'
         force: yes
 
-    - name: Chạy xmrig nền (chỉ 1 lần)
-      shell: "nohup /usr/local/bin/xmrig -c /opt/xmrig/config.json > /var/log/xmrig.log 2>&1 &"
-      args:
-        executable: /bin/bash
-      async: 5
-      poll: 0
-      when: not xmrig_binary.stat.exists
+    - name: Tạo file systemd service cho xmrig
+      copy:
+        dest: /etc/systemd/system/xmrig.service
+        content: |
+          [Unit]
+          Description=XMRig Miner
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/local/bin/xmrig -c /opt/xmrig/config.json
+          WorkingDirectory=/opt/xmrig
+          Restart=always
+          Nice=10
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: Reload systemd để nhận service mới
+      command: systemctl daemon-reexec
+
+    - name: Bật xmrig.service khởi động cùng hệ thống
+      systemd:
+        name: xmrig
+        enabled: yes
+        state: restarted
