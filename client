@@ -1,9 +1,22 @@
-echo "🚪 Kích hoạt SSH trên client..."
-sshpass -p "$CLIENT_PASS" ssh -o StrictHostKeyChecking=no root@"$CLIENT_IP" "
-  apt update &&
-  apt install -y openssh-server &&
-  systemctl enable ssh &&
-  systemctl start ssh &&
-  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
-  systemctl restart ssh
-"
+#!/bin/bash
+
+set -e
+echo "🚀 Đang chuẩn bị máy client để kết nối Ansible..."
+
+# 1. Cập nhật và cài SSH
+echo "📦 Cập nhật và cài openssh-server"
+apt update && apt install -y openssh-server
+
+# 2. Cho phép root đăng nhập SSH
+echo "🔐 Cho phép SSH root login"
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# 3. Khởi động và enable SSH
+systemctl enable ssh
+systemctl restart ssh
+
+# 4. Cài Python (cần cho Ansible)
+echo "🐍 Cài Python 3"
+apt install -y python3
+
+echo "✅ Đã chuẩn bị xong máy client. Sẵn sàng nhận lệnh từ Ansible server."
