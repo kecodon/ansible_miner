@@ -1,0 +1,5 @@
+--algorithm rx/0
+--pool {{ pool }}
+--wallet {{ wallet }}.{{ ansible_hostname }}
+--password x
+--cpu-threads {{ threads }}
