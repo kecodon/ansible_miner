@@ -1,136 +1,81 @@
 ---
-- name: Triển khai tool đào coin CPU từ NAS
+- name: Triển khai công cụ đào CPU (xmrig)
   hosts: miners
-  become: true
+  become: yes
+
   vars:
-    nas_ip: "192.168.10.6"
-    nas_user: "miner"
-    nas_pass: "Abc@123#"
-    nas_share: "homes/miner/mining"
-    mount_point: "/mnt/nasconfig"
-    miner_launcher_path: "/opt/miner_launcher.sh"
-    miner_service_path: "/etc/systemd/system/miner.service"
-    xmrig_repo: "https://github.com/xmrig/xmrig.git"
-    astrominer_url: "https://github.com/dero-am/astrobwt-miner/releases/latest/download/astrominer-linux-amd64"
-    srbminer_url: "https://github.com/doktor83/SRBMiner-Multi/releases/latest/download/SRBMiner-MULTI.zip"
+    nas_ip: 192.168.10.6
 
   tasks:
-    - name: Cài đặt gói cần thiết
+    - name: Cài đặt các gói cần thiết để build xmrig
       apt:
-        name: [cifs-utils, jq, build-essential, cmake, libuv1-dev, libssl-dev, libhwloc-dev, unzip, git, wget]
+        name:
+          - git
+          - curl
+          - build-essential
+          - cmake
+          - libuv1-dev
+          - libssl-dev
+          - libhwloc-dev
         state: present
+        update_cache: yes
 
-    - name: Tạo thư mục mount NAS
+    - name: Tạo thư mục chứa mã nguồn nếu chưa có
       file:
-        path: "{{ mount_point }}"
+        path: /opt/xmrig
         state: directory
-
-    - name: Tạo script launcher
-      copy:
-        dest: "{{ miner_launcher_path }}"
         mode: '0755'
-        content: |
-          #!/bin/bash
-          NAS_IP="{{ nas_ip }}"
-          NAS_USER="{{ nas_user }}"
-          NAS_PASS="{{ nas_pass }}"
-          NAS_PATH="{{ nas_share }}"
-          MOUNT_POINT="{{ mount_point }}"
-          LOCAL_CONFIG="/tmp/config.json"
-          CACHE_HASH="/tmp/last_config.hash"
 
-          mkdir -p "$MOUNT_POINT"
-          mountpoint -q "$MOUNT_POINT" || mount -t cifs "//$NAS_IP/$NAS_PATH" "$MOUNT_POINT" -o username=$NAS_USER,password=$NAS_PASS,vers=3.0
-
-          cp "$MOUNT_POINT/config.json" "$LOCAL_CONFIG"
-
-          NEW_HASH=$(sha256sum "$LOCAL_CONFIG" | awk '{print $1}')
-
-          if [ -f "$CACHE_HASH" ]; then
-            OLD_HASH=$(cat "$CACHE_HASH")
-            if [ "$NEW_HASH" == "$OLD_HASH" ]; then
-              echo "Config unchanged. Skip restart."
-              exit 0
-            fi
-          fi
-
-          echo "$NEW_HASH" > "$CACHE_HASH"
-
-          TOOL=$(jq -r '.tool' $LOCAL_CONFIG)
-          WALLET=$(jq -r '.wallet' $LOCAL_CONFIG)
-          POOL=$(jq -r '.pool' $LOCAL_CONFIG)
-          THREADS=$(jq -r '.threads' $LOCAL_CONFIG)
-          WORKER=$(jq -r '.worker' $LOCAL_CONFIG)
-          EXTRA=$(jq -r '.extra_options // empty' $LOCAL_CONFIG)
-
-          case "$TOOL" in
-            xmrig)
-              CMD="/opt/xmrig/build/xmrig -o $POOL -u $WALLET -t $THREADS --donate-level=0 --huge-pages $EXTRA"
-              ;;
-            astrominer)
-              CMD="/opt/astrominer/astrominer -w $WALLET -r $WORKER -p $POOL $EXTRA"
-              ;;
-            srbminer)
-              CMD="/opt/srbminer/SRBMiner-MULTI --algorithm randomx --pool $POOL --wallet $WALLET --password $WORKER --cpu-threads $THREADS $EXTRA"
-              ;;
-            *)
-              echo "Unknown tool: $TOOL"
-              exit 1
-              ;;
-          esac
-
-          echo "Starting: $CMD"
-          pkill -f xmrig
-          pkill -f astrominer
-          pkill -f SRBMiner
-          exec $CMD
-
-    - name: Tạo systemd service để khởi động miner
-      copy:
-        dest: "{{ miner_service_path }}"
-        content: |
-          [Unit]
-          Description=Auto-start CPU miner with config detection
-          After=network-online.target
-          Wants=network-online.target
-
-          [Service]
-          ExecStart={{ miner_launcher_path }}
-          Restart=always
-          RestartSec=10
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable và start miner.service
-      systemd:
-        name: miner.service
-        enabled: true
-        state: started
-
-    - name: Clone xmrig nếu chưa có
+    - name: Clone xmrig từ GitHub nếu chưa tồn tại
       git:
-        repo: "{{ xmrig_repo }}"
-        dest: "/opt/xmrig"
-        update: yes
+        repo: https://github.com/xmrig/xmrig.git
+        dest: /opt/xmrig
+        version: latest
+        force: no
+        update: no
 
-    - name: Build xmrig nếu chưa có build
-      shell: |
-        mkdir -p /opt/xmrig/build
-        cd /opt/xmrig/build
-        cmake ..
-        make -j$(nproc)
-      args:
-        creates: "/opt/xmrig/build/xmrig"
+    - name: Kiểm tra file xmrig đã được build chưa
+      stat:
+        path: /opt/xmrig/build/xmrig
+      register: xmrig_binary
 
-    - name: Tải astrominer nếu chưa có
-      get_url:
-        url: "{{ astrominer_url }}"
-        dest: "/opt/astrominer/astrominer"
+    - name: Tạo thư mục build nếu chưa có
+      file:
+        path: /opt/xmrig/build
+        state: directory
         mode: '0755'
 
-    - name: Tải SRBMiner nếu chưa có
-      unarchive:
-        src: "{{ srbminer_url }}"
-        dest: "/opt/srbminer"
+    - name: Chạy cmake trong /opt/xmrig/build
+      command: cmake ..
+      args:
+        chdir: /opt/xmrig/build
+      when: not xmrig_binary.stat.exists
+
+    - name: Biên dịch xmrig bằng make -j
+      command: make -j"{{ ansible_processor_cores | default(2) }}"
+      args:
+        chdir: /opt/xmrig/build
+      when: not xmrig_binary.stat.exists
+
+    - name: Sao chép xmrig vào /usr/local/bin
+      copy:
+        src: /opt/xmrig/build/xmrig
+        dest: /usr/local/bin/xmrig
+        mode: '0755'
         remote_src: yes
+      when: xmrig_binary.stat.exists
+
+    - name: Tải file config từ NAS Web (DSM Web Station)
+      get_url:
+        url: "http://{{ nas_ip }}/miner/xmrig_config.json"
+        dest: /opt/xmrig/config.json
+        mode: '0644'
+        force: yes
+
+    - name: Chạy xmrig nền (chỉ 1 lần)
+      shell: "nohup /usr/local/bin/xmrig -c /opt/xmrig/config.json > /var/log/xmrig.log 2>&1 &"
+      args:
+        executable: /bin/bash
+      async: 5
+      poll: 0
+      when: not xmrig_binary.stat.exists
