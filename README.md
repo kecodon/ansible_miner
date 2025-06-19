@@ -14,6 +14,7 @@ Chỉnh sửa
 │   └── dero_start.txt.j2
 
 ✅ 2. CÁC FILE CẦN TẠO/ĐIỀU CHỈNH
+
 File	Mô tả	Cần sửa gì?
 hosts	Danh sách IP client	Thêm IP và user/pass
 mining_vars.yml	Khai báo cấu hình đào	Chọn tool, ví, pool, worker...
