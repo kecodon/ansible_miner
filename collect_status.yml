@@ -5,62 +5,11 @@
 
   tasks:
 
-    - name: Đọc biến môi trường từ file vars
+    - name: Load biến cấu hình đào
       include_vars: mining_vars.yml
 
-    - name: Xác định công cụ đang dùng
-      set_fact:
-        tool: "{{ mining_tool }}"
-
-    - name: Đọc config XMRig nếu đang dùng xmrig
-      when: tool == "xmrig"
-      slurp:
-        src: /opt/xmrig/config.json
-      register: xmrig_config_raw
-
-    - name: Parse config XMRig
-      when: tool == "xmrig"
-      set_fact:
-        config_json: "{{ xmrig_config_raw.content | b64decode | from_json }}"
-        wallet: "{{ config_json.pools[0].user }}"
-        pool: "{{ config_json.pools[0].url }}"
-        coin: "XMR"
-
-    - name: Đọc config SRBMiner nếu đang dùng srbminer
-      when: tool == "srbminer"
-      slurp:
-        src: /opt/srbminer/start.txt
-      register: srb_config_raw
-
-    - name: Parse config SRBMiner
-      when: tool == "srbminer"
-      set_fact:
-        srb_config: "{{ srb_config_raw.content | b64decode }}"
-        wallet: "{{ (srb_config | regex_search('--wallet\\s+(\\S+)', '\\1')) }}"
-        pool: "{{ (srb_config | regex_search('--pool\\s+(\\S+)', '\\1')) }}"
-        coin: "XMR"
-
-    - name: Đọc config DeroLuna nếu đang dùng deroluna
-      when: tool == "deroluna"
-      slurp:
-        src: /opt/deroluna/start.txt
-      register: dero_config_raw
-
-    - name: Parse config DeroLuna
-      when: tool == "deroluna"
-      set_fact:
-        dero_config: "{{ dero_config_raw.content | b64decode }}"
-        wallet: "{{ (dero_config | regex_search('--wallet\\s+(\\S+)', '\\1')) }}"
-        pool: "{{ (dero_config | regex_search('--daemon-address\\s+(\\S+)', '\\1')) }}"
-        coin: "DERO"
-
-    - name: Lấy số threads
-      shell: pgrep -fa "{{ tool }}" | grep -oP '(?<=--threads=)\d+' || echo 0
-      register: threads_raw
-      changed_when: false
-
-    - name: Lấy hash rate (giả định có file log)
-      shell: grep -oP '\d+\.\d+ H/s' /var/log/{{ tool }}.log | tail -n1 || echo "0 H/s"
+    - name: Lấy hashrate (từ file log)
+      shell: grep -oP '\d+\.\d+ H/s' /var/log/{{ mining_tool }}.log | tail -n1 || echo "0 H/s"
       register: hashrate_raw
       changed_when: false
 
@@ -72,10 +21,10 @@
         body:
           worker: "{{ inventory_hostname }}"
           ip: "{{ ansible_host | default('localhost') }}"
-          tool: "{{ tool }}"
-          coin: "{{ coin }}"
+          tool: "{{ mining_tool }}"
+          coin: "{{ mining_tool | lower | regex_replace('xmrig', 'XMR') | regex_replace('srbminer', 'XMR') | regex_replace('deroluna', 'DERO') }}"
           wallet: "{{ wallet }}"
           pool: "{{ pool }}"
-          threads: "{{ threads_raw.stdout }}"
+          threads: "{{ threads }}"
           hashrate: "{{ hashrate_raw.stdout }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
