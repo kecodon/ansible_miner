@@ -1,0 +1,9 @@
+echo "🚪 Kích hoạt SSH trên client..."
+sshpass -p "$CLIENT_PASS" ssh -o StrictHostKeyChecking=no root@"$CLIENT_IP" "
+  apt update &&
+  apt install -y openssh-server &&
+  systemctl enable ssh &&
+  systemctl start ssh &&
+  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+  systemctl restart ssh
+"
