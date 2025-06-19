@@ -1,0 +1,20 @@
+{
+  "autosave": true,
+  "cpu": true,
+  "opencl": false,
+  "cuda": false,
+  "pools": [
+    {
+      "url": "{{ pool }}",
+      "user": "{{ wallet }}.{{ ansible_hostname }}",
+      "pass": "x",
+      "keepalive": true,
+      "tls": false
+    }
+  ],
+  "threads": {{ threads }},
+  "donate-level": 0,
+  "randomx": {
+    "1gb-pages": true
+  }
+}
