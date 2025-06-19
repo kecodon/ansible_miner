@@ -1,6 +1,6 @@
 - name: Thu thập trạng thái máy đào
   hosts: miners
-  gather_facts: false
+  gather_facts: true
   become: yes
 
   tasks:
