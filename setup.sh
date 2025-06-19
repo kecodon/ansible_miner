@@ -14,7 +14,6 @@ chmod +x /root/ansible_miner/run.sh
 chmod +x /root/ansible_miner/dashboard.py
 
 echo "📄 Cấu hình cronjob tự động:"
-# Xoá cron cũ nếu có
 crontab -l 2>/dev/null | grep -v "collect_status.yml" | grep -v "dashboard.py" > /tmp/cron.tmp || true
 
 # Gửi trạng thái miner mỗi phút
@@ -26,13 +25,6 @@ echo "@reboot sleep 30 && cd /root/ansible_miner && nohup python3 dashboard.py >
 crontab /tmp/cron.tmp
 rm /tmp/cron.tmp
 echo "✅ Đã cập nhật crontab"
-
-echo "🔧 Tạo service miner khởi động cùng hệ thống"
-cp /root/ansible_miner/templates/miner.service /etc/systemd/system/miner.service
-systemctl daemon-reexec
-systemctl daemon-reload
-systemctl enable miner.service
-systemctl restart miner.service
 
 echo "🚀 Chạy playbook deploy_miner.yml"
 cd /root/ansible_miner
