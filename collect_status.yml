@@ -1,0 +1,57 @@
+# =========================
+# FILE: collect_status.yml (NEW - chạy trên SERVER)
+# =========================
+- name: Thu thập trạng thái các máy đào
+  hosts: miners
+  gather_facts: no
+  tasks:
+    - name: Kiểm tra tool đang chạy
+      shell: pgrep -af xmrig || pgrep -af SRBMiner || pgrep -af dero
+      register: miner_proc
+      ignore_errors: yes
+
+    - name: Lấy config tool
+      shell: |
+        if echo "{{ miner_proc.stdout }}" | grep -iq xmrig; then
+          cat /opt/xmrig/config.json
+        elif echo "{{ miner_proc.stdout }}" | grep -iq SRBMiner; then
+          cat /opt/SRBMiner-Multi/start.txt
+        elif echo "{{ miner_proc.stdout }}" | grep -iq dero; then
+          cat /opt/dero-miner/start.txt
+        else
+          echo "{}"
+        fi
+      register: config_raw
+      ignore_errors: yes
+
+    - name: Parse hashrate từ log (chỉ xmrig)
+      shell: tail -n 30 /var/log/xmrig.log | grep -oP "[0-9.]+ H/s" | tail -1
+      register: hash_log
+      ignore_errors: yes
+
+    - name: Gửi dữ liệu về dashboard server
+      uri:
+        url: "http://192.168.10.150:5050/report"  # <-- IP SERVER
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          worker: "{{ inventory_hostname }}"
+          ip: "{{ ansible_host }}"
+          tool: >-
+            {% if 'xmrig' in miner_proc.stdout|lower %}xmrig
+            {% elif 'srbminer' in miner_proc.stdout|lower %}srbminer
+            {% elif 'dero' in miner_proc.stdout|lower %}dero
+            {% else %}unknown{% endif %}
+          pool: >-
+            {{ config_raw.stdout | regex_search('(?<=\"url\": \?")[^\"]+', '\1') | default('') }}
+          wallet: >-
+            {{ config_raw.stdout | regex_search('(?<=\"user\": \?")[^\"]+', '\1') | default('') }}
+          coin: >-
+            {% if 'xmrig' in miner_proc.stdout|lower %}XMR
+            {% elif 'dero' in miner_proc.stdout|lower %}DERO
+            {% else %}Unknown{% endif %}
+          threads: "{{ ansible_processor_cores | default(2) }}"
+          hashrate: "{{ hash_log.stdout | default('0 H/s') }}"
+      delegate_to: localhost
