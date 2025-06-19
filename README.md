@@ -1,87 +1,84 @@
-✅ 1. CẤU TRÚC THƯ MỤC
+🖥️ TRÊN MÁY SERVER (Ansible Controller)
+1. Chuẩn bị thư mục làm việc
 
-Sao chép
-Chỉnh sửa
-/root/ansible_miner/
-├── deploy_miner.yml             # Cài tool & chạy tool theo biến
-├── collect_status.yml           # Thu thập trạng thái và gửi về Dashboard
-├── mining_vars.yml              # Biến cấu hình (tool, coin, pool, ví...)
-├── dashboard.py                 # Web Dashboard
-├── hosts                        # Danh sách máy client (IP)
-├── templates/                   # Thư mục chứa các file config mẫu
-│   ├── xmrig_config.json.j2
-│   ├── srbminer_config.txt.j2
-│   └── dero_start.txt.j2
-
-✅ 2. CÁC FILE CẦN TẠO/ĐIỀU CHỈNH
-
-File	Mô tả	Cần sửa gì?
-hosts	Danh sách IP client	Thêm IP và user/pass
-mining_vars.yml	Khai báo cấu hình đào	Chọn tool, ví, pool, worker...
-deploy_miner.yml	Playbook cài tool & khởi động miner	Đã đầy đủ
-collect_status.yml	Gửi trạng thái về dashboard	Đã fix bug ansible_date_time
-dashboard.py	Web dashboard Flask	Không cần sửa nếu port 5050
-templates/*.j2	Config miner theo từng tool	Có thể sửa thêm nếu pool yêu cầu định dạng khác
-
-✅ 3. LỆNH CẦN CHẠY
-
-🔹 Bước 1: Cài Ansible và thư viện cần thiết
 bash
 Sao chép
 Chỉnh sửa
-sudo apt update && sudo apt install -y ansible python3-pip
+cd ~
+git clone <link chứa thư mục ansible_miner>  # Hoặc tạo thủ công
+cd ansible_miner
+2. Cài các gói cần thiết
+
+bash
+Sao chép
+Chỉnh sửa
+apt update && apt install -y python3 python3-pip ansible sshpass git curl
 pip3 install flask
-🔹 Bước 2: Kiểm tra SSH tới client
-bash
-Sao chép
-Chỉnh sửa
-ansible -i hosts all -m ping
-⚠️ Nếu lỗi, cần kiểm tra: SSH key, mật khẩu, sshpass, firewall.
+3. File cần có trong thư mục /root/ansible_miner/:
 
-🔹 Bước 3: Cài miner và khởi động tool
+less
+Sao chép
+Chỉnh sửa
+├── deploy_miner.yml         # Playbook cài tool đào
+├── collect_status.yml       # Playbook thu thập trạng thái
+├── mining_vars.yml          # Biến: ví, pool, tool, v.v.
+├── hosts                    # Danh sách IP máy client
+├── dashboard.py             # Web dashboard hiển thị trạng thái
+├── templates/               # Thư mục chứa các template config
+├── run.sh                   # File khởi động lại hệ thống đào
+├── setup.sh                 # File cài đặt toàn bộ hệ thống
+4. Chạy thiết lập hệ thống (tự động):
+
 bash
 Sao chép
 Chỉnh sửa
-ansible-playbook -i hosts deploy_miner.yml
-🔹 Bước 4: Kiểm tra trạng thái đào
+chmod +x setup.sh
+./setup.sh
+🖥️ TRÊN MÁY CLIENT (mỗi máy chạy 1 lần duy nhất)
+1. Tạo và chạy file client.sh sau cài Ubuntu:
+
 bash
 Sao chép
 Chỉnh sửa
-ansible-playbook -i hosts collect_status.yml
-🔹 Bước 5: Chạy Dashboard Web
+#!/bin/bash
+set -e
+echo "🚀 Đang chuẩn bị máy client..."
+
+apt update && apt install -y openssh-server python3
+
+echo "🔐 Cho phép SSH root login..."
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+systemctl enable ssh
+systemctl restart ssh
+
+echo "✅ Máy client sẵn sàng nhận lệnh từ server."
+Lưu và chạy:
+
+bash
+Sao chép
+Chỉnh sửa
+chmod +x client.sh
+./client.sh
+🔐 Từ SERVER: Gửi SSH Key sang client
+bash
+Sao chép
+Chỉnh sửa
+ssh-copy-id root@192.168.10.201  # Lặp lại với mỗi client
+Nếu không dùng key thì cần cài sshpass và sửa lại file hosts để dùng dạng ansible_ssh_pass=...
+
+🛠️ Khi cần cập nhật cấu hình tool hoặc thay đổi ví/pool:
+bash
+Sao chép
+Chỉnh sửa
+nano mining_vars.yml  # Cập nhật wallet, pool, tool, threads
+./run.sh              # Khởi động lại đúng tool đang chọn
+🌐 Dashboard giám sát
+Khởi chạy Web dashboard (nếu chưa tự chạy):
+
 bash
 Sao chép
 Chỉnh sửa
 cd /root/ansible_miner
 nohup python3 dashboard.py > dashboard.log 2>&1 &
-→ Mở trình duyệt: http://<server>:5050
-
-🔹 Bước 6: Tự động gửi trạng thái mỗi phút
-bash
-Sao chép
-Chỉnh sửa
-crontab -e
-Thêm:
-
-cron
-Sao chép
-Chỉnh sửa
-* * * * * cd /root/ansible_miner && ansible-playbook -i hosts collect_status.yml
-
-✅ 4. ĐỔI TOOL, POOL, VÍ, WORKER
-
-Chỉ cần sửa trong mining_vars.yml, ví dụ:
-
-yaml
-Sao chép
-Chỉnh sửa
-mining_tool: "xmrig"  # hoặc srbminer / deroluna
-wallet: "..."
-pool: "..."
-threads: 24
-Sau đó chạy lại:
-
-bash
-Sao chép
-Chỉnh sửa
-ansible-playbook -i hosts deploy_miner.yml
+Truy cập:
+http://<server-ip>:5050
