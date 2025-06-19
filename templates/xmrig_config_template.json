@@ -1,6 +1,6 @@
 {
   "autosave": true,
-  "algo": "{{ algo }}"
+  
   "cpu": true,
   "opencl": false,
   "cuda": false,
@@ -10,7 +10,8 @@
       "user": "{{ wallet }}.{{ ansible_hostname }}",
       "pass": "x",
       "keepalive": true,
-      "tls": false
+      "tls": false,
+      "algo": "{{ algo }}"
     }
   ],
   "threads": {{ threads }},
