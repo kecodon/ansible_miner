@@ -1,6 +1,6 @@
 {
   "autosave": true,
-  "algo": "{{coin}}"
+  "algo": "{{ algo }}"
   "cpu": true,
   "opencl": false,
   "cuda": false,
