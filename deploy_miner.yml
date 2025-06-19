@@ -1,13 +1,15 @@
 ---
-- name: Triển khai công cụ đào CPU (xmrig)
+- name: Triển khai công cụ đào CPU (xmrig / srbminer / dero)
   hosts: miners
   become: yes
 
   vars:
-    nas_ip: 192.168.10.6
+    nas_ip: 192.168.10.6       # IP NAS của bạn
+    mining_tool: xmrig         # Chọn: xmrig, srbminer, dero
 
   tasks:
-    - name: Cài đặt các gói cần thiết để build xmrig
+
+    - name: Cài đặt các gói cần thiết
       apt:
         name:
           - git
@@ -20,59 +22,44 @@
         state: present
         update_cache: yes
 
-    - name: Tạo thư mục chứa mã nguồn nếu chưa có
-      file:
-        path: /opt/xmrig
-        state: directory
-        mode: '0755'
-
-    - name: Clone xmrig từ GitHub nếu chưa tồn tại
+    ################################################################
+    # XMRIG
+    ################################################################
+    - name: Clone xmrig nếu chọn xmrig
       git:
         repo: https://github.com/xmrig/xmrig.git
         dest: /opt/xmrig
-        version: latest
         force: no
         update: no
+      when: mining_tool == "xmrig"
 
-    - name: Kiểm tra file xmrig đã được build chưa
-      stat:
-        path: /opt/xmrig/build/xmrig
-      register: xmrig_binary
-
-    - name: Tạo thư mục build nếu chưa có
-      file:
-        path: /opt/xmrig/build
-        state: directory
-        mode: '0755'
-
-    - name: Chạy cmake trong /opt/xmrig/build
-      command: cmake ..
+    - name: Build xmrig nếu chọn xmrig
+      shell: |
+        mkdir -p /opt/xmrig/build
+        cd /opt/xmrig/build
+        cmake ..
+        make -j"$(nproc)"
       args:
-        chdir: /opt/xmrig/build
-      when: not xmrig_binary.stat.exists
+        executable: /bin/bash
+      when: mining_tool == "xmrig"
 
-    - name: Biên dịch xmrig bằng make -j
-      command: make -j"{{ ansible_processor_cores | default(2) }}"
-      args:
-        chdir: /opt/xmrig/build
-      when: not xmrig_binary.stat.exists
-
-    - name: Sao chép xmrig vào /usr/local/bin
+    - name: Copy xmrig vào /usr/local/bin
       copy:
         src: /opt/xmrig/build/xmrig
         dest: /usr/local/bin/xmrig
         mode: '0755'
         remote_src: yes
-      when: xmrig_binary.stat.exists
+      when: mining_tool == "xmrig"
 
-    - name: Tải file config từ NAS Web (DSM Web Station)
+    - name: Tải config xmrig từ NAS
       get_url:
         url: "http://{{ nas_ip }}/miner/xmrig_config.json"
         dest: /opt/xmrig/config.json
         mode: '0644'
         force: yes
+      when: mining_tool == "xmrig"
 
-    - name: Tạo file systemd service cho xmrig
+    - name: Tạo service xmrig
       copy:
         dest: /etc/systemd/system/xmrig.service
         content: |
@@ -89,12 +76,104 @@
           [Install]
           WantedBy=multi-user.target
         mode: '0644'
+      when: mining_tool == "xmrig"
 
-    - name: Reload systemd để nhận service mới
+    ################################################################
+    # SRBMiner
+    ################################################################
+    - name: Tải SRBMiner nếu chọn srbminer
+      get_url:
+        url: https://github.com/doktor83/SRBMiner-Multi/releases/download/2.9.2/SRBMiner-Multi-2-9-2-Linux.tar.gz
+        dest: /opt/srbminer.tar.gz
+        mode: '0755'
+      when: mining_tool == "srbminer"
+
+    - name: Giải nén SRBMiner
+      unarchive:
+        src: /opt/srbminer.tar.gz
+        dest: /opt/srbminer
+        remote_src: yes
+      when: mining_tool == "srbminer"
+
+    - name: Tải config SRBMiner từ NAS
+      get_url:
+        url: "http://{{ nas_ip }}/miner/srbminer_config.txt"
+        dest: /opt/srbminer/config.txt
+        mode: '0644'
+        force: yes
+      when: mining_tool == "srbminer"
+
+    - name: Tạo service srbminer
+      copy:
+        dest: /etc/systemd/system/srbminer.service
+        content: |
+          [Unit]
+          Description=SRBMiner Multi
+          After=network.target
+
+          [Service]
+          ExecStart=/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt
+          WorkingDirectory=/opt/srbminer
+          Restart=always
+          Nice=10
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+      when: mining_tool == "srbminer"
+
+    ################################################################
+    # DERO (deroluna)
+    ################################################################
+    - name: Tải deroluna nếu chọn dero
+      get_url:
+        url: https://github.com/DeroLuna/dero-miner/releases/download/v1.14/deroluna-v1.14_linux_hiveos_mmpos.tar.gz
+        dest: /opt/deroluna.tar.gz
+        mode: '0755'
+      when: mining_tool == "dero"
+
+    - name: Giải nén deroluna
+      unarchive:
+        src: /opt/deroluna.tar.gz
+        dest: /opt/deroluna
+        remote_src: yes
+      when: mining_tool == "dero"
+
+    - name: Tải config dero từ NAS
+      get_url:
+        url: "http://{{ nas_ip }}/miner/dero_config.txt"
+        dest: /opt/deroluna/config.txt
+        mode: '0644'
+        force: yes
+      when: mining_tool == "dero"
+
+    - name: Tạo service dero
+      copy:
+        dest: /etc/systemd/system/dero.service
+        content: |
+          [Unit]
+          Description=Dero Luna Miner
+          After=network.target
+
+          [Service]
+          ExecStart=/opt/deroluna/dero-miner-linux-hiveos-mmpos --config /opt/deroluna/config.txt
+          WorkingDirectory=/opt/deroluna
+          Restart=always
+          Nice=10
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+      when: mining_tool == "dero"
+
+    ################################################################
+    # Kích hoạt service
+    ################################################################
+    - name: Reload systemd
       command: systemctl daemon-reexec
 
-    - name: Bật xmrig.service khởi động cùng hệ thống
+    - name: Bật service phù hợp với tool được chọn
       systemd:
-        name: xmrig
+        name: "{{ mining_tool }}"
         enabled: yes
         state: restarted
