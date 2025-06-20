@@ -154,8 +154,6 @@ Tự động bật khi khởi động máy
 Chỉ cần sửa mining_vars.yml, sau đó chạy lại:
 
 ansible-playbook -i inventory/hosts deploy_miner.yml
-🧯 Khắc phục lỗi thường gặp
-Lỗi	Giải pháp
-Permission denied	Đảm bảo SSH root mở + đúng password
-python not found	Cài python3: apt install python3
-Could not find config template	Kiểm tra lại thư mục templates/
+
+🧯 Kiểm tra client đã hoạt động chưa
+ansible miners -a "systemctl status miner" -i hosts
