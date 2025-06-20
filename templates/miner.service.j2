@@ -4,12 +4,14 @@ After=network.target
 
 [Service]
 {% if mining_tool == 'xmrig' %}
-ExecStart=/usr/local/bin/xmrig -c /opt/xmrig/config.json >> /var/log/xmrig.log 2>&1
+ExecStart=/usr/local/bin/xmrig -c /opt/xmrig/config.json
 {% elif mining_tool == 'srbminer' %}
-ExecStart=/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt >> /var/log/srbminer.log 2>&1
+ExecStart=/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt
 {% elif mining_tool == 'dero' %}
-ExecStart=/opt/dero/dero-miner --config /opt/dero/config.txt >> /var/log/dero.log 2>&1
+ExecStart=/opt/dero/dero-miner --config /opt/dero/config.txt
 {% endif %}
+StandardOutput=append:/var/log/{{ mining_tool }}.log
+StandardError=append:/var/log/{{ mining_tool }}.log
 Restart=always
 RestartSec=10
 
