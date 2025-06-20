@@ -1,4 +1,4 @@
---algorithm rx/0
+--algorithm {{ algo }}
 --pool {{ pool }}
 --wallet {{ wallet }}.{{ ansible_hostname }}
 --password x
