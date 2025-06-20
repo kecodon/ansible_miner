@@ -21,7 +21,13 @@ Trên máy chủ Ubuntu/Debian (dùng làm Ansible controller), cài đặt:
 
 sudo apt update
 sudo apt install -y python3 python3-pip git sshpass
-pip3 install --break-system-packages ansible==2.13.13
+pip3 install ansible
+##Tạo file
+nano ~/.ansible.cfg
+## Điền nội dung và lưu lại
+[defaults]
+host_key_checking = False
+inventory = ./hosts
 
 #pip download ansible==2.13.13
 
