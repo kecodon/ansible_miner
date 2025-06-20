@@ -74,26 +74,10 @@
       template:
         src: "{{ 'xmrig_config_template.json' if mining_tool == 'xmrig' else ( 'srbminer_config_template.txt' if mining_tool == 'srbminer' else 'dero_config_template.txt') }}"
         dest: "/opt/{{ mining_tool }}/{{ 'config.json' if mining_tool == 'xmrig' else 'config.txt' }}"
-    - name: Tạo systemd service cho miner
-      copy:
+    - name: Tạo systemd service từ template
+      template:
+        src: templates/miner.service.j2
         dest: /etc/systemd/system/miner.service
-        content: |
-          [Unit]
-          Description=Miner Service
-          After=network.target
-
-          [Service]
-          ExecStart={{
-            (mining_tool == 'xmrig') | ternary('/usr/local/bin/xmrig -c /opt/xmrig/config.json >> /var/log/xmrig.log 2>&1',
-            (mining_tool == 'srbminer') | ternary('/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt >> /var/log/srbminer.log 2>&1',
-            '/opt/dero/dero-miner --config /opt/dero/config.txt >> /var/log/dero.log 2>&1') )
-          }}
-          Restart=always
-          RestartSec=10
-
-          [Install]
-          WantedBy=multi-user.target
-
     - name: Bật và khởi động miner.service
       systemd:
         name: miner
