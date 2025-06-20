@@ -72,9 +72,8 @@
 
     - name: Tạo file config tool
       template:
-        src: "templates/{{ mining_tool }}_config.{{ mining_tool == 'xmrig' | ternary('json', 'txt') }}"
-        dest: "/opt/{{ mining_tool }}/{{ mining_tool == 'xmrig' | ternary('config.json', 'config.txt') }}"
-
+        src: "{{ 'xmrig_config_template.json' if mining_tool == 'xmrig' else ( 'srbminer_config_template.txt' if mining_tool == 'srbminer' else 'dero_config_template.txt') }}"
+        dest: "/opt/{{ mining_tool }}/{{ 'config.json' if mining_tool == 'xmrig' else 'config.txt' }}"
     - name: Tạo systemd service cho miner
       copy:
         dest: /etc/systemd/system/miner.service
