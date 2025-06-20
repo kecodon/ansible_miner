@@ -3,7 +3,13 @@ Description=Miner Service
 After=network.target
 
 [Service]
-ExecStart={{ miner_exec }}
+ExecStart={% if mining_tool == 'xmrig' -%}
+/usr/local/bin/xmrig -c /opt/xmrig/config.json >> /var/log/xmrig.log 2>&1
+{%- elif mining_tool == 'srbminer' -%}
+/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt >> /var/log/srbminer.log 2>&1
+{%- elif mining_tool == 'dero' -%}
+/opt/dero/dero-miner --config /opt/dero/config.txt >> /var/log/dero.log 2>&1
+{%- endif %}
 Restart=always
 RestartSec=10
 
