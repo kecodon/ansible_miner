@@ -1,84 +1,151 @@
-🖥️ TRÊN MÁY SERVER (Ansible Controller)
-1. Chuẩn bị thư mục làm việc
+# 🛠️ Ansible Miner - Quản lý Máy Đào CPU Qua Mạng LAN
 
-bash
-Sao chép
-Chỉnh sửa
-cd ~
-git clone <link chứa thư mục ansible_miner>  # Hoặc tạo thủ công
+Tự động cài đặt, cấu hình và quản lý các máy đào CPU (XMRig / SRBMiner / DeroLuna) qua Ansible — gọn nhẹ, không cần NAS, chỉ cần SSH LAN.
+
+---
+
+## 🚀 Tính năng chính
+
+- ✅ Tự động cài miner: xmrig / srbminer / dero
+- ✅ Đẩy file cấu hình cá nhân hoá theo hostname
+- ✅ Tự tạo `systemd` service để chạy nền
+- ✅ Tự khởi động lại mỗi khi máy bật lên
+- ✅ Không sinh log lỗi, không cần ổ NAS
+- ✅ Triển khai hàng loạt máy đào CPU chỉ với 1 lệnh
+
+---
+
+## 📦 Cài đặt trên Server
+
+Trên máy chủ Ubuntu/Debian (dùng làm Ansible controller), cài đặt:
+
+```bash
+sudo apt update
+sudo apt install -y ansible git
+git clone https://github.com/kecodon/ansible_miner
 cd ansible_miner
-2. Cài các gói cần thiết
+💡 Chuẩn bị máy Client (máy đào)
+Máy client cần chạy Ubuntu/Debian và:
+
+1. Cài đặt Python 3 (nếu chưa có)
+bash
+Sao chép
+Chỉnh sửa
+sudo apt install -y python3
+2. Bật SSH root + mật khẩu
+Chạy các lệnh sau:
 
 bash
 Sao chép
 Chỉnh sửa
-apt update && apt install -y python3 python3-pip ansible sshpass git curl
-pip3 install flask
-3. File cần có trong thư mục /root/ansible_miner/:
-
-less
-Sao chép
-Chỉnh sửa
-├── deploy_miner.yml         # Playbook cài tool đào
-├── collect_status.yml       # Playbook thu thập trạng thái
-├── mining_vars.yml          # Biến: ví, pool, tool, v.v.
-├── hosts                    # Danh sách IP máy client
-├── dashboard.py             # Web dashboard hiển thị trạng thái
-├── templates/               # Thư mục chứa các template config
-├── run.sh                   # File khởi động lại hệ thống đào
-├── setup.sh                 # File cài đặt toàn bộ hệ thống
-4. Chạy thiết lập hệ thống (tự động):
+sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+Nếu chưa đặt mật khẩu cho root:
 
 bash
 Sao chép
 Chỉnh sửa
-chmod +x setup.sh
-./setup.sh
-🖥️ TRÊN MÁY CLIENT (mỗi máy chạy 1 lần duy nhất)
-1. Tạo và chạy file client.sh sau cài Ubuntu:
+sudo passwd root
+🗂️ Cấu trúc thư mục
+bash
+Sao chép
+Chỉnh sửa
+ansible_miner/
+├── deploy_miner.yml               # Playbook chính
+├── inventory/
+│   └── hosts                      # Danh sách máy client
+├── mining_vars.yml               # Biến cấu hình chính
+└── templates/                    # Các template config cho miner
+    ├── xmrig_config_template.json
+    ├── srbminer_config_template.txt
+    └── dero_config_template.txt
+⚙️ Cấu hình
+🔹 1. inventory/hosts
+ini
+Sao chép
+Chỉnh sửa
+[miners]
+192.168.10.201 ansible_user=root ansible_ssh_pass=123456 ansible_python_interpreter=/usr/bin/python3
+Thêm nhiều dòng nếu có nhiều máy đào.
+
+🔹 2. mining_vars.yml
+yaml
+Sao chép
+Chỉnh sửa
+mining_tool: "xmrig"  # hoặc: srbminer / dero
+wallet: "NHbSHmqm1ojuTRtdwkURwhamQ1pNC9SkJU9T"
+pool: "randomxmonero.auto.nicehash.com:9200"
+threads: 24
+algo: "rx/0"
+dashboard_server: 192.168.10.150  # (tuỳ chọn, chưa dùng)
+🔹 3. Các file cấu hình miner
+templates/xmrig_config_template.json
+json
+Sao chép
+Chỉnh sửa
+{
+  "autosave": true,
+  "cpu": true,
+  "opencl": false,
+  "cuda": false,
+  "pools": [
+    {
+      "url": "{{ pool }}",
+      "user": "{{ wallet }}.{{ ansible_hostname }}",
+      "pass": "x",
+      "keepalive": true,
+      "tls": false,
+      "algo": "{{ algo }}"
+    }
+  ],
+  "threads": {{ threads }},
+  "donate-level": 0,
+  "randomx": {
+    "1gb-pages": true
+  }
+}
+templates/srbminer_config_template.txt
+css
+Sao chép
+Chỉnh sửa
+--algorithm {{ algo }}
+--pool {{ pool }}
+--wallet {{ wallet }}.{{ ansible_hostname }}
+--password x
+--cpu-threads {{ threads }}
+templates/dero_config_template.txt
+css
+Sao chép
+Chỉnh sửa
+--rpc
+--wallet-address {{ wallet }}
+--daemon-address {{ pool }}
+--threads {{ threads }}
+▶️ Triển khai
+Chạy lệnh sau từ thư mục ansible_miner:
 
 bash
 Sao chép
 Chỉnh sửa
-#!/bin/bash
-set -e
-echo "🚀 Đang chuẩn bị máy client..."
+ansible-playbook -i inventory/hosts deploy_miner.yml
+Cài đặt miner tương ứng
 
-apt update && apt install -y openssh-server python3
+Tạo cấu hình cá nhân hoá
 
-echo "🔐 Cho phép SSH root login..."
-sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-systemctl enable ssh
-systemctl restart ssh
+Cài đặt systemd service (miner.service)
 
-echo "✅ Máy client sẵn sàng nhận lệnh từ server."
-Lưu và chạy:
+Tự động bật khi khởi động máy
+
+♻️ Cập nhật cấu hình mới
+Chỉ cần sửa mining_vars.yml, sau đó chạy lại:
 
 bash
 Sao chép
 Chỉnh sửa
-chmod +x client.sh
-./client.sh
-🔐 Từ SERVER: Gửi SSH Key sang client
-bash
-Sao chép
-Chỉnh sửa
-ssh-copy-id root@192.168.10.201  # Lặp lại với mỗi client
-Nếu không dùng key thì cần cài sshpass và sửa lại file hosts để dùng dạng ansible_ssh_pass=...
-
-🛠️ Khi cần cập nhật cấu hình tool hoặc thay đổi ví/pool:
-bash
-Sao chép
-Chỉnh sửa
-nano mining_vars.yml  # Cập nhật wallet, pool, tool, threads
-./run.sh              # Khởi động lại đúng tool đang chọn
-🌐 Dashboard giám sát
-Khởi chạy Web dashboard (nếu chưa tự chạy):
-
-bash
-Sao chép
-Chỉnh sửa
-cd /root/ansible_miner
-nohup python3 dashboard.py > dashboard.log 2>&1 &
-Truy cập:
-http://<server-ip>:5050
+ansible-playbook -i inventory/hosts deploy_miner.yml
+🧯 Khắc phục lỗi thường gặp
+Lỗi	Giải pháp
+Permission denied	Đảm bảo SSH root mở + đúng password
+python not found	Cài python3: apt install python3
+Could not find config template	Kiểm tra lại thư mục templates/
