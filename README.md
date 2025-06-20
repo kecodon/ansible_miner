@@ -21,7 +21,13 @@ Trên máy chủ Ubuntu/Debian (dùng làm Ansible controller), cài đặt:
 
 ```bash
 sudo apt update
-sudo apt install -y ansible git
+sudo apt install -y python3-pip
+
+#pip download ansible==2.13.13
+#pip download ansible-core==2.13.13
+#pip3 install --break-system-packages ansible
+pip3 install --break-system-packages ansible==2.13.13
+
 git clone https://github.com/kecodon/ansible_miner
 cd ansible_miner
 💡 Chuẩn bị máy Client (máy đào)
