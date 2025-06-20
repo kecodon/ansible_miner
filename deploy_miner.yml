@@ -78,8 +78,15 @@
       template:
         src: templates/miner.service.j2
         dest: /etc/systemd/system/miner.service
+      notify: Reload systemd
+
     - name: Bật và khởi động miner.service
       systemd:
         name: miner
         enabled: yes
         state: restarted
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
