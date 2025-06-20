@@ -1,7 +1,3 @@
-# ============================
-# deploy_miner.yml
-# ============================
-
 - name: Triển khai công cụ đào CPU đơn giản
   hosts: miners
   become: yes
@@ -30,54 +26,58 @@
         update: no
       when: mining_tool == "xmrig"
 
-    - name: Tạo thư mục build
-      file:
-        path: /opt/xmrig/build
-        state: directory
-      when: mining_tool == "xmrig"
-
-    - name: CMake xmrig
-      command: cmake ..
+    - name: Build XMRig nếu chưa có
+      shell: |
+        mkdir -p /opt/xmrig/build
+        cd /opt/xmrig/build
+        cmake ..
+        make -j"$(nproc)"
+        cp xmrig /usr/local/bin/xmrig
       args:
-        chdir: /opt/xmrig/build
+        creates: /usr/local/bin/xmrig
       when: mining_tool == "xmrig"
 
-    - name: Build xmrig
-      command: make -j"{{ ansible_processor_cores | default(2) }}"
-      args:
-        chdir: /opt/xmrig/build
-      when: mining_tool == "xmrig"
-
-    - name: Copy xmrig vào /usr/local/bin
-      copy:
-        src: /opt/xmrig/build/xmrig
-        dest: /usr/local/bin/xmrig
-        mode: '0755'
-        remote_src: yes
-      when: mining_tool == "xmrig"
-
-    - name: Tải tool SRBMiner
+    - name: Tải SRBMiner nếu chưa có
       unarchive:
         src: https://github.com/doktor83/SRBMiner-Multi/releases/download/2.9.2/SRBMiner-Multi-2-9-2-Linux.tar.gz
         dest: /opt/srbminer/
         remote_src: yes
+        creates: /opt/srbminer/SRBMiner-MULTI
       when: mining_tool == "srbminer"
 
-    - name: Tải tool DeroLuna
+    - name: Tải DeroLuna nếu chưa có
       unarchive:
         src: https://github.com/DeroLuna/dero-miner/releases/download/v1.14/deroluna-v1.14_linux_hiveos_mmpos.tar.gz
         dest: /opt/dero/
         remote_src: yes
+        creates: /opt/dero/dero-miner
       when: mining_tool == "dero"
 
     - name: Tạo file config tool
       template:
-        src: "{{ 'xmrig_config_template.json' if mining_tool == 'xmrig' else ( 'srbminer_config_template.txt' if mining_tool == 'srbminer' else 'dero_config_template.txt') }}"
+        src: "{{ mining_tool }}_config_template.{{ 'json' if mining_tool == 'xmrig' else 'txt' }}"
         dest: "/opt/{{ mining_tool }}/{{ 'config.json' if mining_tool == 'xmrig' else 'config.txt' }}"
-    - name: Tạo systemd service từ template
-      template:
-        src: templates/miner.service.j2
+        mode: '0644'
+
+    - name: Tạo systemd service trực tiếp
+      copy:
         dest: /etc/systemd/system/miner.service
+        content: |
+          [Unit]
+          Description=Miner Service
+          After=network.target
+
+          [Service]
+          ExecStart={{ 
+            '/usr/local/bin/xmrig -c /opt/xmrig/config.json' if mining_tool == 'xmrig' else (
+            '/opt/srbminer/SRBMiner-MULTI --config /opt/srbminer/config.txt' if mining_tool == 'srbminer' else
+            '/opt/dero/dero-miner --config /opt/dero/config.txt') 
+          }}
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
       notify: Reload systemd
 
     - name: Bật và khởi động miner.service
