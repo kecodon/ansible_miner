@@ -1,0 +1,11 @@
+[Unit]
+Description=Miner Service
+After=network.target
+
+[Service]
+ExecStart={{ miner_exec }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
