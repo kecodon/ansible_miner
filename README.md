@@ -20,8 +20,8 @@ Tự động cài đặt, cấu hình và quản lý các máy đào CPU (XMRig 
 Trên máy chủ Ubuntu/Debian (dùng làm Ansible controller), cài đặt:
 
 sudo apt update
-apt install -y sshpass
-sudo apt install -y python3-pip
+sudo apt install -y python3 python3-pip git sshpass
+pip3 install --break-system-packages ansible==2.13.13
 
 #pip download ansible==2.13.13
 
