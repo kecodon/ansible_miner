@@ -1,4 +1,4 @@
 --rpc
---wallet-address {{ wallet }}.{{ ansible_hostname }}
+--wallet-address {{ wallet }}
 --daemon-address {{ pool }}
 --threads {{ threads }}
