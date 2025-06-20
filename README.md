@@ -20,14 +20,19 @@ Tự động cài đặt, cấu hình và quản lý các máy đào CPU (XMRig 
 Trên máy chủ Ubuntu/Debian (dùng làm Ansible controller), cài đặt:
 
 sudo apt update
+
 sudo apt install -y python3-pip
 
 #pip download ansible==2.13.13
+
 #pip download ansible-core==2.13.13
+
 #pip3 install --break-system-packages ansible
+
 pip3 install --break-system-packages ansible==2.13.13
 
 git clone https://github.com/kecodon/ansible_miner
+
 cd ansible_miner
 
 💡 Chuẩn bị máy Client (máy đào)
@@ -36,13 +41,21 @@ Máy client cần chạy Ubuntu/Debian và:
 1. Cài đặt Python 3 (nếu chưa có)
 
 sudo apt install -y python3
+
 2. Bật SSH root + mật khẩu
+   
 Chạy các lệnh sau:
+
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
 sudo systemctl restart ssh
+
 Nếu chưa đặt mật khẩu cho root:
+
 sudo passwd root
+
 🗂️ Cấu trúc thư mục
 
 ansible_miner/
@@ -54,22 +67,32 @@ ansible_miner/
     ├── xmrig_config_template.json
     ├── srbminer_config_template.txt
     └── dero_config_template.txt
+    
 ⚙️ Cấu hình
+
 🔹 1. inventory/hosts
 
 [miners]
 192.168.10.201 ansible_user=root ansible_ssh_pass=password ansible_python_interpreter=/usr/bin/python3
+
 Thêm nhiều dòng nếu có nhiều máy đào.
 
 🔹 2. mining_vars.yml
 
 mining_tool: "xmrig"  # hoặc: srbminer / dero
+
 wallet: "NHbSHmqm1ojuTRtdwkURwhamQ1pNC9SkJU9T"
+
 pool: "randomxmonero.auto.nicehash.com:9200"
+
 threads: 24
+
 algo: "rx/0"
+
 dashboard_server: 192.168.10.150  # (tuỳ chọn, chưa dùng)
+
 🔹 3. Các file cấu hình miner
+
 templates/xmrig_config_template.json
 
 {
