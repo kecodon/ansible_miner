@@ -29,6 +29,7 @@ pip3 install --break-system-packages ansible==2.13.13
 
 git clone https://github.com/kecodon/ansible_miner
 cd ansible_miner
+
 💡 Chuẩn bị máy Client (máy đào)
 Máy client cần chạy Ubuntu/Debian và:
 
